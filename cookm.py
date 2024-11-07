@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from langgraph.prebuilt import tools_condition
 
-
+from langgraph.checkpoint.memory import MemorySaver
 
 import os
 import getpass
@@ -273,21 +273,42 @@ workflow.add_conditional_edges(
 workflow.add_edge("generate", END)
 workflow.add_edge("rewrite", "agent")
 
+# memory
+memory=MemorySaver()
 # Compile
-graph = workflow.compile()
+graph = workflow.compile(checkpointer=memory)
 
 
 if __name__ == "__main__":
-    import pprint
+    # import pprint
 
-    inputs = {
-        "messages": [
-            ("user", "What does Lilian Weng say about the types of agent memory?"),
-        ]
-    }
-    for output in graph.stream(inputs):
-        for key, value in output.items():
-            pprint.pprint(f"Output from node '{key}':")
-            pprint.pprint("---")
-            pprint.pprint(value, indent=2, width=80, depth=None)
-        pprint.pprint("\n---\n")
+    # inputs = {
+    #     "messages": [
+    #         ("user", "What does Lilian Weng say about the types of agent memory?"),
+    #     ]
+    # }
+    # for output in graph.stream(inputs):
+    #     for key, value in output.items():
+    #         pprint.pprint(f"Output from node '{key}':")
+    #         pprint.pprint("---")
+    #         pprint.pprint(value, indent=2, width=80, depth=None)
+    #     pprint.pprint("\n---\n")
+    import gradio as gr
+    config ={"configurable":{"thread_id":"1"}}
+    def predict(message, history):
+        # history_langchain_format = []
+        # for msg in history:
+        #     if msg['role'] == "user":
+        #         history_langchain_format.append(HumanMessage(content=msg['content']))
+        #     elif msg['role'] == "assistant":
+        #         history_langchain_format.append(AIMessage(content=msg['content']))
+        # history_langchain_format.append(HumanMessage(content=message))
+        gpt_response=""
+        events = graph.stream({"messages":("user",message)},config,stream_mode="values")
+        for event in events:
+            event["messages"][-1].pretty_print()
+
+        gpt_response=graph.get_state(config).values["messages"][-1].content
+        return gpt_response
+
+    gr.ChatInterface(predict, type="messages").launch()
