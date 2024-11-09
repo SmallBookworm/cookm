@@ -1,2 +1,2 @@
 # cookm
-用llm生成菜谱
+cook llm
